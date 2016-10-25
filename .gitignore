@@ -6,3 +6,5 @@ example_data/
 questionnaires/
 response_sheets/
 templates/
+data/
+jupyter_notebooks/

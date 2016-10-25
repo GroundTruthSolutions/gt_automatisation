@@ -80,11 +80,13 @@ def input_question_info():
                     print question_types[response]
                     question_type_list.append(question_types[response])
 
-                binary_options_dict = {1:['1_yes', '2_no'], 2:['1_female', '2_male'], 3:['Other']}
+                binary_options_dict = {1:['1_no', '2_yes', '3_dont_know', '4_dont_want_to_answer'],
+                                       2:['1_yes', '2_no', '3_dont_know', '4_dont_want_to_answer'],
+                                       3:['1_female', '2_male'], 4:['Other']}
                 likert_options_dict = {1:['1_not_at_all', '2_slightly', '3_moderately', '4_mostly', '5_completely', '6_dont_know', '7_dont_want_to_answer'],
                                        2:['1_completely', '2_mostly', '3_moderately', '4_slightly', '5_not_at_all', '6_dont_know', '7_dont_want_to_answer'],
-                                         3: ['1_never', '2_rarely', '3_sometimes', '4_most_of_the_time', '5_always', '6_dont know', '7_dont_want_to_answer'],
-                                         4: ['1_always', '2_most_of_the_time', '3_sometimes', '4_rarely', '5_never', '6_dont know', '7_dont_want_to_answer'],
+                                         3: ['1_never', '2_rarely', '3_sometimes', '4_most_of_the_time', '5_always', '6_dont_know', '7_dont_want_to_answer'],
+                                         4: ['1_always', '2_most_of_the_time', '3_sometimes', '4_rarely', '5_never', '6_dont_know', '7_dont_want_to_answer'],
                                             5:['Other']}
 
                 if question_type_list[question_counter] == 'binary':
