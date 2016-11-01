@@ -1,10 +1,25 @@
-### Import libraries
+"""This is a set of cleaning and plotting functions to speed up descriptive analyses.
+
+These functions have been designed to work with a data set that follow GT specifications and a template
+for that dataset (see the gen_templates module) These functions are intended to be loaded into an interactive
+python environment such as Jupyter or Markup.
+
+These functions were written to interact with pandas 0.18.1, numpy 1.11.1.,  matplotlib 1.5.3, and seaborn 0.7.1,
+"""
+
+__version__ = '0.1'
+__author__ = 'Tomas Folke'
+
+# Import libraries
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 def mismatch_search(data, template):
+    """Compares the columns with a data frame to the index of a transposed matrix, and identifies columns
+    that don't have a match
+    """
     mismatches = []
     mismatch_numbers = []
     mismatch_number = 0
@@ -17,6 +32,9 @@ def mismatch_search(data, template):
     return mismatches, mismatch_numbers
 
 def find_suggested_labels(mismatches, template):
+    """Finds suggested labels for mismatched column names by comparing the prefix of the mismatched columns
+    with the prefixes in the transposed template.
+    """
     suggestion_list = []
     mismatch_prefixes = [mismatch.split('_')[0] for mismatch in mismatches]
     for label in template.index:
@@ -25,6 +43,7 @@ def find_suggested_labels(mismatches, template):
     return suggestion_list
 
 def gen_match_dict(mismatches, suggestions):
+    """Creates a dictionary from two lists, where the first list contains keys and the second contains data."""
     matching_dict ={}
     mismatches_no_partner = []
     for mismatch in mismatches:
@@ -44,12 +63,14 @@ def gen_match_dict(mismatches, suggestions):
         print mismatches_no_partner
 
 def print_response_overview(data, columns):
+    """Prints frequency counts for a list of columns in a data frame"""
     for column in columns:
         print column
         print np.sort(data.loc[:, column].unique())
         print
 
-def count_dont_knows(data, template, columns):
+def count_response_proportions(data, template, columns):
+    """Prints response proportions for likert scale and binary questions in a column list"""
     for column in columns:
         temp = pd.DataFrame(data.loc[:, column].value_counts(normalize=True))
         temp = temp.reset_index()
@@ -57,13 +78,15 @@ def count_dont_knows(data, template, columns):
         temp = temp.sort_values(by=column).reset_index(drop=True)
         if template.loc[column, 'question_type'] == 'likert':
             print temp
-        elif template.loc[column, 'question_type'] == 'likert':
+        elif template.loc[column, 'question_type'] == 'binary':
             print temp
 
 def delete_dont_knows(data, columns):
+    """Deletes "don't know" and "don't want to answer responses" from specified columns"""
      data.loc[:, columns] = data.loc[:, columns].replace(['6_dont_know', '3_dont_know', '7_dont_want_to_answer', '4_dont_want_to_answer'], np.nan)
 
 def reverse_question_scoring(data, question, include_dont_knows=False):
+    """Reverses the numbers at the beginning of the response alternatives"""
     response_numbers = [np.int(answer.split('_')[0]) for answer in data[question]]
     response_numbers = np.array(response_numbers)
     if include_dont_knows == True:
@@ -77,6 +100,7 @@ def reverse_question_scoring(data, question, include_dont_knows=False):
     return updated_responses
 
 def bin_quantities(data, template, quantiles=3):
+    """Bins quantitative data"""
     for column in template.loc[template['question_type']=='quantity', :].index:
         print column
         extracted_quantities = []
@@ -84,7 +108,8 @@ def bin_quantities(data, template, quantiles=3):
             extracted_quantities.append(np.int(data.loc[index, column].split('_')[0]))
         data[column+'_quantiles'] = pd.qcut(extracted_quantities, quantiles)
 
-def gen_freq_table(data, question):
+def gen_summary_table(data, question):
+    """Generates summary tables for a question, including frequencies percentages and cumulative frequencies"""
     table = data[question].value_counts()
     table = pd.DataFrame(table)
     table = table.reset_index()
@@ -102,107 +127,48 @@ def gen_freq_table(data, question):
     table['cum_proportion'] = table['cum_frequency']/table.loc[table.shape[0]-1, 'cum_frequency']
     return table
 
-def draw_likert_plot(table):
-    # set up figure parameters
-    sns.set(style='white', font_scale=1.5)
-    fig, ax = plt.subplots(figsize=(15,2))
-    likert_dict ={1: "#f19891", 2: "#f8cac3", 3:"#e9ecf0", 4:"#b2cfb3", 5:"#4aa168", 6:"#d1b26f", 7:'#ad8150'}
-    likert_keys = [np.int(label.split('_')[0]) for label in table.iloc[:, 0]]
-    likert_colours = sns.color_palette([likert_dict[x] for x in likert_keys])
+def draw_basic_plot(table, likert=True):
+    """Generates and saves standard GT bar plots from summary tables of likert questions and binary questions."""
+    sns.set(style='white')
+    likert=True
+    table2 = table.set_index(column)
+    table2 = table2.transpose()
+    table2.loc['', :] = np.zeros(len(table2.columns))
 
-    # plot the figure
-    response_categories = range(table.shape[0])
-    response_categories.reverse()
-    for cat in response_categories:
-        sns.barplot(x=table.loc[cat, 'cum_proportion'], color=likert_colours[cat])
+    if likert == True:
+        likert_dict ={1: "#f19891", 2: "#f8cac3", 3:"#e9ecf0", 4:"#b2cfb3", 5:"#4aa168", 6:"#c9d5dd", 7:'#9bb2bf'}
+        likert_keys = [np.int(label.split('_')[0]) for label in table2.columns]
+        likert_colours = sns.color_palette([likert_dict[x] for x in likert_keys])
+        colours = likert_colours
+    else:
+        binary_dict = {1: "#f19891", 2: "#4aa168", 3: "#c9d5dd", 4: '#9bb2bf'}
+        binary_keys = [np.int(label.split('_')[0]) for label in table2.columns]
+        binary_colours = sns.color_palette([binary_dict[x] for x in binary_keys])
+        colours = binary_colours
 
-    # remove black lines around the figure
+    fig, ax = plt.subplots(figsize=(15, 2))
+    table2.loc[('', 'percent'), :].plot(kind='barh', stacked=True, color=likert_colours, legend=False, width=0.6,
+                                          ax=ax)
     sns.despine(top=True, right=True, left=True, bottom=True)
-    # remove the y-scale
-    ax.set(xticklabels=[])
+    ax.set(xlim=(0, output2.loc['percent', :].sum()), ylim=(0.7, 1.3), yticklabels=(), xticklabels=[])
 
-    #create the white spaces between the squares
+     #create the white spaces between the squares
     rects = ax.patches
     [rect.set(edgecolor='white', linewidth=3) for rect in rects]
-
-    #add the percentage labels
-    labels = list(table['percent'].astype(int))
-    labels.reverse()
-    labels = ["{0:.0f}".format(label) for label in labels]
-
-    start_points = [rect.get_width() for rect in rects]
-    start_points.pop(0)
-    start_points.append(0.0)
-    end_points = [rect.get_width() for rect in rects]
-    differences = np.array(end_points) - np.array(start_points)
-    label_positions = differences/2 + start_points
-
-    for rect, label, label_position in zip(rects, labels, label_positions):
-        height = rect.get_height()/6
-        ax.text(rect.get_x() + label_position, height, label,
-                weight='bold', ha='center', va='bottom', size=30, color='#000000')
-
-    # savefig
-    question_name = table.columns[0]
-    plt.tight_layout()
-    fig.gca().set_axis_off()
-    fig.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0,
-            hspace = 0, wspace = 0)
-    ax.margins(0,0)
-    fig.gca().xaxis.set_major_locator(plt.NullLocator())
-    fig.gca().yaxis.set_major_locator(plt.NullLocator())
-    plt.savefig('output/' + question_name+'.pdf', dpi=600, bbox_inches='tight', pad_inches=0)
-    plt.savefig('output/' + question_name+'.jpg', dpi=600, bbox_inches='tight', pad_inches=0)
-    plt.close()
-
-def draw_binary_plot(table):
-    # set up figure parameters
-    sns.set(style='white', font_scale=1.5)
-    fig, ax = plt.subplots(figsize=(15,2))
-    binary_dict = {1: "#f19891", 2: "#4aa168", 3: "#d1b26f", 4: '#ad8150'}
-    binary_keys = [np.int(label.split('_')[0]) for label in table.iloc[:, 0]]
-    binary_colours = sns.color_palette([binary_dict[x] for x in binary_keys])
-
-    # plot the figure
-    response_categories = range(table.shape[0])
-    response_categories.reverse()
-    for cat in response_categories:
-        sns.barplot(x=table.loc[cat, 'cum_proportion'], color=binary_colours[cat])
-
-    # remove black lines around the figure
-    sns.despine(top=True, right=True, left=True, bottom=True)
-    # remove the y-scale
-    ax.set(xticklabels=[])
-
-    #create the white spaces between the squares
-    rects = ax.patches
-    [rect.set(edgecolor='white', linewidth=3) for rect in rects]
-
-    #add the percentage labels
-    labels = list(table['percent'].astype(int))
-    labels.reverse()
-    labels = ["{0:.0f}".format(label) for label in labels]
-
-    start_points = [rect.get_width() for rect in rects]
-    start_points.pop(0)
-    start_points.append(0.0)
-    end_points = [rect.get_width() for rect in rects]
-    differences = np.array(end_points) - np.array(start_points)
-    label_positions = differences/2 + start_points
-
-    for rect, label, label_position in zip(rects, labels, label_positions):
-        height = rect.get_height()/6
-        ax.text(rect.get_x() + label_position, height, label,
-                weight='bold', ha='center', va='bottom', size=30, color='#000000')
-
-    # savefig
-    question_name = table.columns[0]
+     # Adding the percentage labels
+    for p in ax.patches:
+        if p.get_width() > 0:
+            ax.annotate("{0:.0f}".format(p.get_width()),
+                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 40), textcoords='offset points',
+                    weight='bold', size=30, ha='center')
+    question_name = table2.columns.name
     plt.tight_layout()
     plt.savefig('output/'+question_name+'.pdf', dpi=600)
     plt.savefig('output/'+question_name+'.jpg', dpi=600)
     plt.close()
 
 def gen_disag_table(data, question, breakdown):
+    """Generates summary tables for disaggregated data"""
     table = data.groupby(breakdown)[question].value_counts()
     table = pd.DataFrame(table)
     table.columns = ['frequency']
@@ -228,9 +194,10 @@ def gen_disag_table(data, question, breakdown):
     return table
 
 def draw_disag_plot(table, likert=True, reindex_order=np.nan):
+    """Generates and saves standard GT bar plots from disaggregated tables"""
 
-    # this is a stupid formula so that the figure gets 2 inches wider for each category, with an additional inch for
-    # the whitespace between each category
+    # this formula ensures that the figure gets 2 inches wider for each category, with an additional inch for
+    # the whitespaces between categories
     fig_height = len(table.loc[:, table.columns[0]].unique())*2
     fig, ax = plt.subplots(figsize=(15, fig_height))
 
@@ -288,6 +255,7 @@ def draw_disag_plot(table, likert=True, reindex_order=np.nan):
 
 
 def remove_non_ascii(text):
+    """Remove non-ascii symbols from a string"""
     return ''.join([i if ord(i) < 128 else ' ' for i in text])
 
 def gen_long_table(data, question_lists_1, filename):
@@ -305,4 +273,5 @@ def gen_long_table(data, question_lists_1, filename):
     freq_count.to_csv(filename)
 
 def replace_response_categories(data, column, old_responses, new_response):
+    """Quick way to reassign cell information inside a pandas dataframe."""
     data.loc[data[column].isin(old_responses), column] = new_response
