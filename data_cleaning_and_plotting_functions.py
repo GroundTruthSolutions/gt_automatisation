@@ -58,7 +58,7 @@ def gen_match_dict(mismatches, suggestions):
     if len(mismatches) == len(matching_dict):
         return matching_dict
     else:
-        return np.nan()
+        return np.nan
         print 'Matching failed, the following data columns lack suggestions:'
         print mismatches_no_partner
 
@@ -104,9 +104,11 @@ def bin_quantities(data, template, quantiles=3):
     for column in template.loc[template['question_type']=='quantity', :].index:
         print column
         extracted_quantities = []
-        for index in data.index:
-            extracted_quantities.append(np.int(data.loc[index, column].split('_')[0]))
-        data[column+'_quantiles'] = pd.qcut(extracted_quantities, quantiles)
+        if data[column].dtype == str:
+            for index in data.loc[data[column].notnull(), :].index:
+                extracted_quantities.append(np.int(data.loc[index, column].split('_')[0]))
+        extracted_quantities = data.loc[data[column].notnull(), column].values
+        data.loc[data[column].notnull(), column+'_quantiles'] = pd.qcut(extracted_quantities, quantiles)
 
 def gen_summary_table(data, question):
     """Generates summary tables for a question, including frequencies percentages and cumulative frequencies"""
@@ -130,8 +132,7 @@ def gen_summary_table(data, question):
 def draw_basic_plot(table, likert=True):
     """Generates and saves standard GT bar plots from summary tables of likert questions and binary questions."""
     sns.set(style='white')
-    likert=True
-    table2 = table.set_index(column)
+    table2 = table.set_index(table.columns[0])
     table2 = table2.transpose()
     table2.loc['', :] = np.zeros(len(table2.columns))
 
@@ -146,25 +147,27 @@ def draw_basic_plot(table, likert=True):
         binary_colours = sns.color_palette([binary_dict[x] for x in binary_keys])
         colours = binary_colours
 
-    fig, ax = plt.subplots(figsize=(15, 2))
-    table2.loc[('', 'percent'), :].plot(kind='barh', stacked=True, color=likert_colours, legend=False, width=0.6,
-                                          ax=ax)
+    fig, ax = plt.subplots(figsize=(7.5, 1))
+    table2.loc[('', 'percent'), :].plot(kind='barh', stacked=True, color=colours, legend=False, width=0.6,
+                                              ax=ax)
     sns.despine(top=True, right=True, left=True, bottom=True)
-    ax.set(xlim=(0, output2.loc['percent', :].sum()), ylim=(0.7, 1.3), yticklabels=(), xticklabels=[])
+    ax.set(xlim=(0, table2.loc['percent', :].sum()), ylim=(0.7, 1.3), yticklabels=(), xticklabels=[])
 
-     #create the white spaces between the squares
+    #create the white spaces between the squares
     rects = ax.patches
     [rect.set(edgecolor='white', linewidth=3) for rect in rects]
-     # Adding the percentage labels
+
+    # Adding the percentage labels
     for p in ax.patches:
         if p.get_width() > 0:
             ax.annotate("{0:.0f}".format(p.get_width()),
-                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 40), textcoords='offset points',
-                    weight='bold', size=30, ha='center')
+                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 29), textcoords='offset points',
+                    weight='bold', size=15, ha='center')
     question_name = table2.columns.name
-    plt.tight_layout()
-    plt.savefig('output/'+question_name+'.pdf', dpi=600)
-    plt.savefig('output/'+question_name+'.jpg', dpi=600)
+    fig.subplots_adjust(top = 0.99, bottom = 0.01, right = 0.99, left = 0.01,
+            hspace = 0, wspace = 0)
+    plt.savefig('output/'+question_name+'.pdf', dpi=600, transparent=True)
+    plt.savefig('output/'+question_name+'.jpg', dpi=600, transparent=True)
     plt.close()
 
 def gen_disag_table(data, question, breakdown):
@@ -198,8 +201,8 @@ def draw_disag_plot(table, likert=True, reindex_order=np.nan):
 
     # this formula ensures that the figure gets 2 inches wider for each category, with an additional inch for
     # the whitespaces between categories
-    fig_height = len(table.loc[:, table.columns[0]].unique())*2
-    fig, ax = plt.subplots(figsize=(15, fig_height))
+    fig_height = len(table.loc[:, table.columns[0]].unique())
+    fig, ax = plt.subplots(figsize=(7.5, fig_height))
 
     # preparing and plotting the basic graph
     table2 = table.pivot(index=table.columns[0], columns=table.columns[1], values='percent')
@@ -207,12 +210,12 @@ def draw_disag_plot(table, likert=True, reindex_order=np.nan):
         table2 = table2.reindex(reindex_order)
     index = list(table2.index)
     if likert == True:
-        likert_dict ={1: "#f19891", 2: "#f8cac3", 3:"#e9ecf0", 4:"#b2cfb3", 5:"#4aa168", 6:"#d1b26f", 7:'#ad8150'}
+        likert_dict ={1: "#f19891", 2: "#f8cac3", 3:"#e9ecf0", 4:"#b2cfb3", 5:"#4aa168", 6:"#c9d5dd", 7:'#9bb2bf'}
         likert_keys = [np.int(label.split('_')[0]) for label in table2.columns]
         likert_colours = sns.color_palette([likert_dict[x] for x in likert_keys])
         colours = likert_colours
     else:
-        binary_dict = {1: "#f19891", 2: "#4aa168", 3: "#d1b26f", 4: '#ad8150'}
+        binary_dict = {1: "#f19891", 2: "#4aa168", 3: "#c9d5dd", 4: '#9bb2bf'}
         binary_keys = [np.int(label.split('_')[0]) for label in table2.columns]
         binary_colours = sns.color_palette([binary_dict[x] for x in binary_keys])
         colours = binary_colours
@@ -236,23 +239,18 @@ def draw_disag_plot(table, likert=True, reindex_order=np.nan):
     for p in ax.patches:
         if p.get_width() > 0:
             ax.annotate("{0:.0f}".format(p.get_width()),
-                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 30), textcoords='offset points',
-                   weight='bold', size=30, ha='center')
+                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 15), textcoords='offset points',
+                   weight='bold', size=15, ha='center')
     # savefig
     question_name = table2.columns.name.split('_')[0] + '_by_' + table2.index.name.split('_')[0] + '_order'
     for alternative in alternatives:
         question_name = question_name + '_' + np.str(alternative)
-    plt.tight_layout()
-    fig.gca().set_axis_off()
+
     fig.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0,
     hspace = 0, wspace = 0)
-    ax.margins(0,0)
-    fig.gca().xaxis.set_major_locator(plt.NullLocator())
-    fig.gca().yaxis.set_major_locator(plt.NullLocator())
-    plt.savefig(r'output/' + table2.index.name + '_breakdowns/' + question_name+'.pdf', dpi=600, bbox_inches='tight', pad_inches=0)
-    plt.savefig(r'output/' + table2.index.name + '_breakdowns/' + question_name+'.jpg', dpi=600, bbox_inches='tight', pad_inches=0)
+    plt.savefig(r'output/' + table2.index.name + '_breakdowns/' + question_name+'.pdf', dpi=600, transparent=True)
+    plt.savefig(r'output/' + table2.index.name + '_breakdowns/' + question_name+'.jpg', dpi=600, transparent=True)
     plt.close()
-
 
 def remove_non_ascii(text):
     """Remove non-ascii symbols from a string"""
@@ -275,3 +273,117 @@ def gen_long_table(data, question_lists_1, filename):
 def replace_response_categories(data, column, old_responses, new_response):
     """Quick way to reassign cell information inside a pandas dataframe."""
     data.loc[data[column].isin(old_responses), column] = new_response
+
+def draw_time_series_plot(data, question, session, mean, filename):
+    """Draw plot to track mean changes across rounds"""
+    question_data = data.loc[(data['Question']==question), :].copy()
+
+    sns.set(font_scale=0.8, style='whitegrid')
+    fig, ax = plt.subplots(figsize=(3.22, 1.23))
+
+    sns.pointplot(data=question_data,
+                 x=session, y=mean, markers='D', color='#65889d', scale=0.5)
+    ax.set(ylabel='', ylim=(1, 5), xlabel='',
+            xticklabels= '',#['Round %d' %round for round in example.loc[:, 'Round']],
+            yticklabels=('1','', '2', '', '3', '', '4', '', '5'))
+
+    [ax.text(p[0], p[1]+0.3, p[1], color='black', ha='center', size=9) for p in zip(ax.get_xticks(),
+            question_data.loc[:, 'Mean'].round(1))]
+
+    fig.subplots_adjust(top = 0.96, bottom = 0.04, right = 0.99, left = 0.06,
+            hspace = 0, wspace = 0)
+    plt.savefig(filename + '.pdf', dpi=600, transparent=True)
+    plt.savefig(filename + '.png', dpi=600, transparent=True)
+    plt.close()
+
+def draw_basic_exp_plot(table, likert=True):
+    """Generates and saves standard GT bar plots from summary tables of likert questions and binary questions.
+    Gives a title to make the questions easy to identify, not meant for report writing."""
+    sns.set(style='white')
+    table2 = table.set_index(table.columns[0])
+    table2 = table2.transpose()
+    table2.loc[' ', :] = np.zeros(len(table2.columns))
+    question_name = ' '.join(table2.columns.name.split('_'))
+
+    if likert == True:
+        likert_dict ={1: "#f19891", 2: "#f8cac3", 3:"#e9ecf0", 4:"#b2cfb3", 5:"#4aa168", 6:"#c9d5dd", 7:'#9bb2bf'}
+        likert_keys = [np.int(label.split('_')[0]) for label in table2.columns]
+        likert_colours = sns.color_palette([likert_dict[x] for x in likert_keys])
+        colours = likert_colours
+    else:
+        binary_dict = {1: "#f19891", 2: "#4aa168", 3: "#c9d5dd", 4: '#9bb2bf'}
+        binary_keys = [np.int(label.split('_')[0]) for label in table2.columns]
+        binary_colours = sns.color_palette([binary_dict[x] for x in binary_keys])
+        colours = binary_colours
+
+    fig, ax = plt.subplots(figsize=(7.5, 1))
+    table2.loc[('', 'percent'), :].plot(kind='barh', stacked=True, color=colours, legend=False, width=0.6,
+                                              ax=ax, title=question_name)
+    sns.despine(top=True, right=True, left=True, bottom=True)
+    ax.set(xlim=(0, table2.loc['percent', :].sum()), ylim=(0.7, 1.3), yticklabels=(), xticklabels=[])
+
+    #create the white spaces between the squares
+    rects = ax.patches
+    [rect.set(edgecolor='white', linewidth=3) for rect in rects]
+
+    # Adding the percentage labels
+    for p in ax.patches:
+        if p.get_width() > 0:
+            ax.annotate("{0:.0f}".format(p.get_width()),
+                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 11), textcoords='offset points',
+                    weight='bold', size=15, ha='center')
+    plt.tight_layout()
+
+def draw_disag_exp_plot(table, likert=True, reindex_order=np.nan):
+    """Generates and saves standard GT bar plots from disaggregated tables. Contains Question titles and
+    category labels. For exploratory use, not report writing."""
+
+    # this formula ensures that the figure gets 2 inches wider for each category, with an additional inch for
+    # the whitespaces between categories
+    fig_height = len(table.loc[:, table.columns[0]].unique())
+    fig, ax = plt.subplots(figsize=(7.5, fig_height))
+
+    # preparing and plotting the basic graph
+    table2 = table.pivot(index=table.columns[0], columns=table.columns[1], values='percent')
+    if reindex_order == reindex_order:
+        table2 = table2.reindex(reindex_order)
+    index = list(table2.index)
+    if likert == True:
+        likert_dict ={1: "#f19891", 2: "#f8cac3", 3:"#e9ecf0", 4:"#b2cfb3", 5:"#4aa168", 6:"#c9d5dd", 7:'#9bb2bf'}
+        likert_keys = [np.int(label.split('_')[0]) for label in table2.columns]
+        likert_colours = sns.color_palette([likert_dict[x] for x in likert_keys])
+        colours = likert_colours
+    else:
+        binary_dict = {1: "#f19891", 2: "#4aa168", 3: "#c9d5dd", 4: '#9bb2bf'}
+        binary_keys = [np.int(label.split('_')[0]) for label in table2.columns]
+        binary_colours = sns.color_palette([binary_dict[x] for x in binary_keys])
+        colours = binary_colours
+
+    index.reverse()
+    table2 = table2.reindex(index)
+    question_name = ' '.join(table2.columns.name.split('_'))
+    table2.plot(kind='barh', stacked=True, color=colours, ax=ax, legend=False, width=0.6,
+               title=question_name)
+
+    # remove black lines around the figure
+    sns.despine(top=True, right=True, left=True, bottom=True)
+    alternatives = ax.get_yticklabels()
+    alternatives = [alternative.get_text() for alternative in list(alternatives)]
+    alternatives.reverse()
+    ax.set(xticklabels=[], ylabel='')
+
+    #create the white spaces between the squares
+    rects = ax.patches
+    [rect.set(edgecolor='white', linewidth=3) for rect in rects]
+
+    # Adding the percentage labels
+    for p in ax.patches:
+        if p.get_width() > 0:
+            ax.annotate("{0:.0f}".format(p.get_width()),
+                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 15), textcoords='offset points',
+                   weight='bold', size=15, ha='center')
+    plt.tight_layout()
+
+def whole_number(string):
+    '''Rounds a string of decimals to whole numbers'''
+     return [ '%.0f' %float(elem) for elem in string.split() ]
