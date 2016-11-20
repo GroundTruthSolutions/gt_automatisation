@@ -15,6 +15,7 @@ __author__ = 'Tomas Folke'
 # import libraries
 import numpy as np
 import pandas as pd
+import os
 
 def input_response_option(options_dict):
     """This function allows the user to select an alternative from a dictionary of options.
@@ -188,7 +189,11 @@ def create_template():
 
     template.index = ['HXL_tag', 'question_section', 'question_type', 'response_options']
 
-    file_path = raw_input("Where should the template be saved?")
+    recomended_file_path = os.getcwd() + "/temp.csv"
+    file_path = raw_input("Where should the template be saved? (if left empty : " + recomended_file_path + ")")
+
+    if file_path == "":
+    	file_path = recomended_file_path
 
     template.to_csv(file_path)
 
