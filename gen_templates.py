@@ -175,6 +175,15 @@ def input_question_info():
 
     return [question_list, hxl_tags, section_list, question_type_list, response_options_list]
 
+def get_file_path():
+	recomended_file_path = os.getcwd() + "/temp.csv"
+	file_path = raw_input("Where should the template be saved? (if left empty : " + recomended_file_path + ")")
+
+	if file_path == "":
+		file_path = recomended_file_path
+
+	return file_path
+
 
 def create_template():
     """ Wrapping function to create the template and save it as a csv file.
@@ -189,12 +198,7 @@ def create_template():
 
     template.index = ['HXL_tag', 'question_section', 'question_type', 'response_options']
 
-    recomended_file_path = os.getcwd() + "/temp.csv"
-    file_path = raw_input("Where should the template be saved? (if left empty : " + recomended_file_path + ")")
-
-    if file_path == "":
-    	file_path = recomended_file_path
-
+    file_path = get_file_path()
     template.to_csv(file_path)
 
 create_template()
