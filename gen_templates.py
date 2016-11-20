@@ -62,7 +62,7 @@ def input_question_info():
         if question == 'end':
             done = True
         else:
-            question = question.translate(None, ".,:!?")
+            question = question.translate(None, "_.,:!?")
             question = question.lower()
             question = '_'.join(question.split())
 
