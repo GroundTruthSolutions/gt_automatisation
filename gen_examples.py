@@ -138,6 +138,6 @@ def gen_examples_from_template():
     response_sheet_path = raw_input("Where to you want to save the response sheet?")
 
     sim_data.to_csv(sim_data_path, index=False)
-    response_sheet.to_csv(response_sheet_path)
+    response_sheet.to_csv(response_sheet_path, index=False)
 
 gen_examples_from_template()

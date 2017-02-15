@@ -112,7 +112,7 @@ def bin_quantities(data, template, quantiles=3):
 
 def gen_summary_table(data, question):
     """Generates summary tables for a question, including frequencies percentages and cumulative frequencies"""
-    table = data[question].value_counts()
+    table = data[question].value_counts(sort=False)
     table = pd.DataFrame(table)
     table = table.reset_index()
     table.columns = [question, 'frequency']
@@ -172,7 +172,7 @@ def draw_basic_plot(table, likert=True):
 
 def gen_disag_table(data, question, breakdown):
     """Generates summary tables for disaggregated data"""
-    table = data.groupby(breakdown)[question].value_counts()
+    table = data.groupby(breakdown)[question].value_counts(sort=False)
     table = pd.DataFrame(table)
     table.columns = ['frequency']
     table = table.reset_index()
@@ -201,6 +201,7 @@ def draw_disag_plot(table, likert=True, reindex_order=np.nan):
 
     # this formula ensures that the figure gets 2 inches wider for each category, with an additional inch for
     # the whitespaces between categories
+    sns.set(style='white')
     fig_height = len(table.loc[:, table.columns[0]].unique())
     fig, ax = plt.subplots(figsize=(7.5, fig_height))
 
@@ -229,7 +230,7 @@ def draw_disag_plot(table, likert=True, reindex_order=np.nan):
     alternatives = ax.get_yticklabels()
     alternatives = [alternative.get_text() for alternative in list(alternatives)]
     alternatives.reverse()
-    ax.set(xticklabels=[], ylabel='', yticklabels=[])
+    ax.set(xlim=(0, 100), ylabel='', yticklabels=[], xticklabels=[])
 
     #create the white spaces between the squares
     rects = ax.patches
@@ -244,7 +245,7 @@ def draw_disag_plot(table, likert=True, reindex_order=np.nan):
     # savefig
     question_name = table2.columns.name.split('_')[0] + '_by_' + table2.index.name.split('_')[0] + '_order'
     for alternative in alternatives:
-        question_name = question_name + '_' + np.str(alternative)
+        question_name = question_name + '_' + np.str(alternative).split('_')[0]
 
     fig.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0,
     hspace = 0, wspace = 0)
@@ -387,3 +388,118 @@ def draw_disag_exp_plot(table, likert=True, reindex_order=np.nan):
 def whole_number(string):
     '''Rounds a string of decimals to whole numbers'''
      return [ '%.0f' %float(elem) for elem in string.split() ]
+
+def write_large_freq_table(data, column_list, name):
+    "Combines data from several columns of open responses into one large frequency table"
+    long_list = pd.melt(data, value_vars=column_list)
+    frequency_table = pd.DataFrame(long_list['value'].value_counts())
+    frequency_table.to_excel(writer, name, startrow=0)
+
+def gen_multiple_choice_tables(option_list, question):
+    """This is a function that generates frequency and output tables for multiple choice questions.
+    It takes two inputs: A list of column names for the various options, and the column name of the
+    question the tables should be generated for."""
+    table_list = []
+
+    for option in option_list:
+        table = data.groupby(option)[question].value_counts(sort=False)
+        table = pd.DataFrame(table)
+        table.columns = ['frequency']
+        table = table.reset_index()
+        table = table.loc[table[table.columns[0]]==True, :]
+        table.loc[:, table.columns[0]] = table.columns[0]
+        table.columns = ['service', question, 'frequency']
+        table['percent'] = table['frequency']/np.float(table['frequency'].sum()) * 100
+        table['percent'] = table['percent'].round()
+        table_list.append(table)
+
+    long_table = pd.concat(table_list)
+    long_table.sort_values(by=['service', question])
+    long_table['service'] = long_table['service'].map(lambda x: x[3:])
+
+    freq_table = long_table.pivot(index='service', columns=question, values='frequency')
+    freq_table = freq_table.fillna(0)
+
+    per_table = long_table.pivot(index='service', columns=question, values='percent')
+    per_table = per_table.fillna(0)
+    return long_table, freq_table, per_table
+
+def draw_np_plot(data, question):
+    '''Draw plots for net promoter distributions, adhearing to the
+    Keystone standard.'''
+    sns.set(style='white')
+
+    # generating table
+    table = pd.DataFrame(data[question].value_counts(sort=False, normalize=True))
+    table[question] = table[question]*100
+    table = table.round()
+    table = table.transpose()
+
+    #specifying the colours
+    colour_dict = {'detractor': "#f19891", 'passive': "#ffdd86", 'promoter':"#4aa168"}
+    colour_keys = table.columns
+    colours = sns.color_palette([colour_dict[x] for x in colour_keys])
+
+    # drawing the plot
+    fig, ax = plt.subplots(figsize=(mm2inch(171.097), mm2inch(10.231)))
+    table.plot(kind='barh', stacked=True, legend=False, width=1,
+                            color=colours, ax=ax)
+    sns.despine(top=True, right=True, left=True, bottom=True)
+    ax.set(xlim=(0, table.sum(1).values[0]), yticklabels=[], xticklabels=[])
+
+    #create the white spaces between the squares
+    rects = ax.patches
+    [rect.set(edgecolor='white', linewidth=3) for rect in rects]
+
+    # Adding the percentage labels
+    for p in ax.patches:
+        if p.get_width() > 0:
+            ax.annotate("{0:.0f}".format(p.get_width()),
+                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 4), textcoords='offset points',
+                    weight='bold', size=15, ha='center')
+
+    fig.subplots_adjust(top = 0.99, bottom = 0.01, right = 0.99, left = 0.01,
+            hspace = 0, wspace = 0)
+
+    # saving the figure
+    question_name = ('_').join(question.split('. '))
+    plt.savefig('../../output/'+question_name+'.pdf', dpi=600, transparent=True)
+    plt.savefig('../../output/'+question_name+'.jpg', dpi=600, transparent=True)
+    plt.close()
+
+def draw_exp_np_plot(data, question):
+    '''A version of the netpromoter plot for exploratory pdfs.'''
+    sns.set(style='white')
+
+    # generating table
+    table = pd.DataFrame(data[question].value_counts(sort=False, normalize=True))
+    table[question] = table[question]*100
+    table = table.round()
+    table = table.transpose()
+
+    #specifying the colours
+    colour_dict = {'detractor': "#f19891", 'passive': "#ffdd86", 'promoter':"#4aa168"}
+    colour_keys = table.columns
+    colours = sns.color_palette([colour_dict[x] for x in colour_keys])
+
+    # drawing the plot
+    fig, ax = plt.subplots(figsize=(mm2inch(171.097), mm2inch(10.231)))
+    table.plot(kind='barh', stacked=True, legend=False, width=1,
+                            color=colours, ax=ax)
+    sns.despine(top=True, right=True, left=True, bottom=True)
+    ax.set(xlim=(0, table.sum(1).values[0]), xticklabels=[],
+    yticklabels=[], title=question)
+
+    #create the white spaces between the squares
+    rects = ax.patches
+    [rect.set(edgecolor='white', linewidth=3) for rect in rects]
+
+    # Adding the percentage labels
+    for p in ax.patches:
+        if p.get_width() > 0:
+            ax.annotate("{0:.0f}".format(p.get_width()),
+                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 4), textcoords='offset points',
+                    weight='bold', size=15, ha='center')
+
+    fig.subplots_adjust(top = 0.99, bottom = 0.01, right = 0.99, left = 0.01,
+            hspace = 0, wspace = 0)
