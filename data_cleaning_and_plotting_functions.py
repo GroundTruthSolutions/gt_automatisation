@@ -170,6 +170,48 @@ def draw_basic_plot(table, likert=True):
     plt.savefig('output/'+question_name+'.jpg', dpi=600, transparent=True)
     plt.close()
 
+def draw_basic_poster_plot(table, likert=True):
+    """Generates and saves standard GT bar plots from summary tables of likert questions and binary questions.
+    The dimensions of the generated plots are adapted to suit a poster format. """
+    sns.set(style='white')
+    table2 = table.set_index(table.columns[0])
+    table2 = table2.transpose()
+    table2.loc['', :] = np.zeros(len(table2.columns))
+
+    if likert == True:
+        likert_dict ={1: "#f19891", 2: "#f8cac3", 3:"#e9ecf0", 4:"#b2cfb3", 5:"#4aa168", 6:"#c9d5dd", 7:'#9bb2bf'}
+        likert_keys = table2.columns
+        likert_colours = sns.color_palette([likert_dict[x] for x in likert_keys])
+        colours = likert_colours
+    else:
+        binary_dict = {1: "#f19891", 2: "#4aa168", 3: "#c9d5dd", 4: '#9bb2bf'}
+        binary_keys = table2.columns
+        binary_colours = sns.color_palette([binary_dict[x] for x in binary_keys])
+        colours = binary_colours
+
+    fig, ax = plt.subplots(figsize=(mm2inch(220), mm2inch(23.5)))
+    table2.loc[('', 'percent'), :].plot(kind='barh', stacked=True, color=colours, legend=False, width=0.6,
+                                              ax=ax)
+    sns.despine(top=True, right=True, left=True, bottom=True)
+    ax.set(xlim=(0, table2.loc['percent', :].sum()), ylim=(0.7, 1.3), yticklabels=(), xticklabels=[])
+
+    #create the white spaces between the squares
+    rects = ax.patches
+    [rect.set(edgecolor='white', linewidth=1) for rect in rects]
+
+    # Adding the percentage labels
+    for p in ax.patches:
+        if p.get_width() > 0:
+            ax.annotate("{0:.0f}".format(p.get_width()),
+                    (p.get_x() + p.get_width()/2, p.get_y()), xytext=(0, 23), textcoords='offset points',
+                    weight='bold', size=30, ha='center')
+    question_name = table2.columns.name
+    fig.subplots_adjust(top = 0.99, bottom = 0.01, right = 1, left = 0,
+            hspace = 0, wspace = 0)
+    plt.savefig('../../output/'+question_name+'.pdf', dpi=600, transparent=True)
+    plt.savefig('../../output/'+question_name+'.jpg', dpi=600, transparent=True)
+    plt.close()
+
 def gen_disag_table(data, question, breakdown):
     """Generates summary tables for disaggregated data"""
     table = data.groupby(breakdown)[question].value_counts(sort=False)
