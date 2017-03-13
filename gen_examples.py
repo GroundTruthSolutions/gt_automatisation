@@ -15,7 +15,7 @@ __author__ = 'Tomas Folke'
 # import libraries
 import numpy as np
 import pandas as pd
-#import itertools as it
+import itertools as it
 
 def load_template():
     """Loads csv from a path specificed by the user and returns a pandas data frame"""
@@ -31,10 +31,10 @@ def extract_response_options(template, column):
 
 def extract_multiple_choice_combinations(options):
     """Generates a list of all possible combinations from multiple choice questions"""
-    combinations_list = list(combinations(options, 1))
+    combinations_list = list(it.combinations(options, 1))
     if len(options) > 1:
         for i in range(2, len(options)+1):
-            combinations_list.extend(list(combinations(options, i)))
+            combinations_list.extend(list(it.combinations(options, i)))
     return combinations_list
 
 def gen_sim_data(template):
