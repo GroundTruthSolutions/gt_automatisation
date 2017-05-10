@@ -29,11 +29,13 @@ def extract_response_options(template, column):
     options = options.split()
     return options
 
-def extract_multiple_choice_combinations(options):
+def extract_multiple_choice_combinations(options, combo=0):
     """Generates a list of all possible combinations from multiple choice questions"""
     combinations_list = list(it.combinations(options, 1))
+    if combo == 0:
+        combo = len(options)
     if len(options) > 1:
-        for i in range(2, len(options)+1):
+        for i in range(2, combo+1):
             combinations_list.extend(list(it.combinations(options, i)))
     return combinations_list
 
@@ -60,7 +62,12 @@ def gen_sim_data(template):
             sim_data.loc[:, column] = sim_values
         elif template.loc['question_type', column] == 'multiple_choice':
             options = extract_response_options(template, column)
-            combinations_list = extract_multiple_choice_combinations(options)
+            print column
+            combo = raw_input('Pick max number of options')
+            if combo == '':
+                combinations_list = extract_multiple_choice_combinations(options)
+            else:
+                combinations_list = extract_multiple_choice_combinations(options, int(combo))
             sim_values = np.random.choice(combinations_list, n_row)
             sim_data.loc[:, column] = [', '.join(value).translate(None, "()'") for value in sim_values]
         elif template.loc['question_type', column] == 'quantity':
@@ -91,7 +98,12 @@ def gen_response_sheet(template):
                 n_row = len(options)
         elif template.loc['question_type', column] == 'multiple_choice':
             options = extract_response_options(template, column)
-            combinations_list = extract_multiple_choice_combinations(options)
+            print column
+            combo = raw_input('Pick max number of options')
+            if combo == '':
+                combinations_list = extract_multiple_choice_combinations(options)
+            else:
+                combinations_list = extract_multiple_choice_combinations(options, int(combo))
             if len(combinations_list) > n_row:
                 n_row = len(combinations_list)
 
